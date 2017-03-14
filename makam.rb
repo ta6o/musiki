@@ -1,5 +1,5 @@
-$makam = [
-  ["kaba çârgâh","çârgâh",0,0,0] ,
+$sekizli = [
+  ["kaba çârgâh","çârgâh",0,0,1] ,
   ["kaba nîm hicâz","nîm hicâz", 8, -5, 4],
   ["kaba hicâz","hicâz", -11, 7, 1],
   ["kaba dik hicâz","dik hicâz", 16, -10, 3],
@@ -26,21 +26,85 @@ $makam = [
   ["çârgâh","tîz çârgâh", 1, 0, 1]
 ]
 
+$makam = {
+  "cargah" => "c5c4"
+}
+
+$ara = {
+  F: {v: 1, d: "", b: ""},
+  E: {v: 3, d: "", b: ""},
+  B: {v: 4, d: "", b: ""},
+  S: {v: 5, d: "", b: ""},
+  K: {v: 8, d: "", b: ""},
+  T: {v: 9, d: "", b: ""},
+  A: {v: 12, d: "", b: ""},
+  Z: {v: 13, d: "", b: ""}
+}
+
+$c3 = {
+  c: {n: "çârgâh", a: "TT", d:0},
+  b: {n: "bûselik", a: "TB", d:18},
+  k: {n: "kürdî", a: "BT", d:18},
+  r: {n: "râst", a: "TK", d:14},
+  u: {n: "uşşak", a: "KS", d:18},
+  h: {n: "hicaz", a: "SA", d:18},
+  n: {n: "nikrîz", a: "TS", d:14}
+}
+
+$c4 = {}
+$c3.each do |n, h|
+  x = 22 - h[:a].split("").map{|i| $ara[i.to_sym][:v] }.inject(&:+)
+  h[:a] = h[:a]+($ara.map{|k,v| v[:v] == x ? k : nil }-[nil])[0].to_s
+  $c4[n] = h
+end
+
+$c5 = {}
+$c4.each do |n, h|
+  $c5[n] = h.dup
+  $c5[n][:a] = h[:a]+"T"
+end
+
+$c = {3 => $c3, 4 => $c4, 5 => $c5}
+
 $koma = 2 ** (1/53.0)
 $temp = 2 ** (1/12.0)
 
 require "csv"
 
+$dizi = []
 CSV.open("./makam.csv","w") do |csv|
   csv << ["kaba","tîz",2,3,"kesir","oran", "aralık", "koma", "koma oran","fark","tempere","fark"]
   koma = 0
-  $makam.each_with_index do |ton,ind|
+  $sekizli.each_with_index do |ton,ind|
     line = ton[0..-2]
     if ton[2] > 0
-      line << "#{2 ** ton[2]} / #{3 ** (ton[3]*-1)}"
+      m1 = "#{2 ** ton[2]} / #{3 ** (ton[3]*-1)}"
+      m2 = "#{2 ** ton[2]*2} / #{3 ** (ton[3]*-1)}"
+      line << m1
     else
-      line << "#{3 ** ton[3]} / #{2 ** (ton[2]*-1)}"
+      m1 = "#{3 ** ton[3]} / #{2 ** (ton[2]*-1)}"
+      m2 = "#{3 ** ton[3]} / #{2 ** (ton[2]*-1-1)}"
+      line << m1
     end
+
+    $dizi[ind] = {
+      :name => ton[0],
+      :int => ton[-1],
+      :int_sym => ($ara.map{|i,j| ton[-1] == j[:v] ? i : nil }-[nil])[0].to_s,
+      :frac => m1,
+      :freq => eval("#{line[-1].strip}.0")
+    }
+
+    if ind > 0
+      $dizi[ind+24] = {
+        :name => ton[1],
+        :int => ton[-1],
+        :int_sym => ($ara.map{|i,j| ton[-1] == j[:v] ? i : nil }-[nil])[0].to_s,
+        :frac => m1,
+        :freq => eval("#{line[-1].strip}.0*2")
+      }
+    end
+
     line << eval("#{line[-1].strip}.0")
     line << ton[-1]
     line << koma += ton[-1]
@@ -56,3 +120,67 @@ CSV.open("./makam.csv","w") do |csv|
     csv << line
   end
 end
+
+require "unidecoder"
+
+class Makam
+  def initialize m
+    if $makam.has_key?(m.to_ascii.downcase)
+      m = $makam[m.to_ascii.downcase].scan(/\w\d/)
+    else
+      m = m.scan(/\w\d/)
+    end
+    n = m.index{|i| i=~/[A-Z]\w/} || 0
+    n = 0
+    m.map!(&:downcase)
+    q = m.map {|i| $c[i[1].to_i][i[0].to_sym] }
+    r = q.map {|i| i[:a].split("") }.flatten
+    {:a=>r,:d=>q[n][:d]}
+    @@int_sym = r
+    @@int = @@int_sym.map{|i| $ara[i.to_sym][:v]}
+    @@tonic = q[n][:d]
+    a = $dizi.map{|i|i[:int]}
+    u = a[@@tonic..-1]
+    dd = @@tonic
+    @@notes = [dd]
+    #p [0, u[0], $dizi[dd][:name]]
+    #puts
+    @@int.each do |int|
+      while true
+        int -= u.shift
+        dd += 1
+        #p [int, u[0], $dizi[dd][:name]]
+        if int == 0
+          break
+        elsif int < 0
+          dd -= 1
+          break
+        end
+      end
+      #puts
+      @@notes << dd
+    end
+    @@note_names = @@notes.map {|i| $dizi[i][:name]}
+  end
+
+  def int
+    @@int
+  end
+
+  def int_sym
+    @@int_sym
+  end
+
+  def notes
+    @@notes
+  end
+
+  def note_names
+    @@note_names
+  end
+
+  def tonic
+    @@tonic
+  end
+end
+
