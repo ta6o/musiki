@@ -75,14 +75,14 @@ module Musiki
   }
 
   INTERVAL = {
-    F: {value: 1, sharp: "", flat: ""},
-    E: {value: 3, sharp: "", flat: ""},
-    B: {value: 4, sharp: "", flat: ""},
-    S: {value: 5, sharp: "", flat: ""},
-    K: {value: 8, sharp: "", flat: ""},
-    T: {value: 9, sharp: "", flat: ""},
-    A: {value: 12, sharp: "", flat: ""},
-    Z: {value: 13, sharp: "", flat: ""}
+    F: {value: 1, sharp: "", flat: "", name: "koma"},
+    E: {value: 3, sharp: "", flat: "", name: "eksik bakıye"},
+    B: {value: 4, sharp: "", flat: "", name: "bakıye"},
+    S: {value: 5, sharp: "", flat: "", name: "küçük mücenneb"},
+    K: {value: 8, sharp: "", flat: "", name: "büyük mücenneb"},
+    T: {value: 9, sharp: "", flat: "", name: "tanini"},
+    A: {value: 12, sharp: "", flat: "", name: "artık ikili"},
+    Z: {value: 13, sharp: "", flat: "", name: "artık ikili"}
   }
 
   TRIAD = {
@@ -118,7 +118,7 @@ module Musiki
   require "csv"
 
   NOTES = []
-  CSV.open("./makam.csv","w") do |csv|
+  CSV.open("../misc/makam.csv","w") do |csv|
     csv << ["kaba","tîz",2,3,"kesir","oran", "aralık", "koma", "koma oran","fark","tempere","fark"]
     koma = -1
     OCTAVE.each_with_index do |ton,ind|
@@ -249,12 +249,13 @@ module Musiki
     end
 
     def sample dur=500
+      # TODO seems there's an error with the frequencies, doesn't sound right.
       puts "#{self.inspect}:" if self.up or self.down
       if self.up
         print "> "
         self.up.notes.each_with_index do |note,index|
           print "#{index == 0 ? note.name.tr_capitalize : note.name}#{index < self.notes.length - 1 ? ", " : "."}"
-          `chuck --bufsize64 makam.ck:#{Musiki::base}:#{dur}:#{note.order} 2>&1 >/dev/null`
+          `chuck --bufsize64 ../misc/makam.ck:#{Musiki::base}:#{dur}:#{note.order} 2>&1 >/dev/null`
         end
         puts
       end
@@ -262,7 +263,7 @@ module Musiki
         print "< "
         self.down.notes.each_with_index do |note,index|
           print "#{index == 0 ? note.name.tr_capitalize : note.name}#{index < self.down.notes.length - 1 ? ", " : "."}"
-          `chuck --bufsize64 makam.ck:#{Musiki::base}:#{dur}:#{note.order} 2>&1 >/dev/null`
+          `chuck --bufsize64 ../misc/makam.ck:#{Musiki::base}:#{dur}:#{note.order} 2>&1 >/dev/null`
         end
         puts
       end
@@ -283,7 +284,7 @@ module Musiki
       dd = @tonic
       @notes = [dd]
       p [0, u[0], NOTES[dd][:name], NOTES[dd][:comma], dd] if Musiki.verbose?
-      puts
+      puts if Musiki.verbose?
       @intervals.each do |int|
         while true
           puts "\e[39m#{[int, u[0], NOTES[dd][:name], NOTES[dd][:comma], dd]}" if Musiki.verbose?
@@ -313,7 +314,6 @@ module Musiki
       n = 0
       m.map!(&:downcase)
       q = m.map {|i| MODE[i[1].to_i][i[0].to_sym] }
-      pp q
       @interval_symbols = q.map {|i| i[:interval].split("") }.flatten.reverse
       @intervals = @interval_symbols.map{|i| INTERVAL[i.to_sym][:value] * -1}
       @tonic = q[n][:tonic]+24
